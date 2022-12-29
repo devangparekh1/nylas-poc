@@ -52,6 +52,7 @@ app.get("/oauth/callback", (req, res, next) => {
     });
     res.status(200).json({ message: "Success" });
   } else if (req.query.error) {
+    console.log(req);
     res.render("error", {
       message: req.query.reason,
       error: {
@@ -324,13 +325,19 @@ app.post("/reply-to-email", async (req, res, next) => {
 
 app.post("/forward-email", async (req, res, next) => {
   const token = await client.get(req.query.emailAddress);
+
   const nylas = Nylas.with(token);
-  const thread = await nylas.threads.find("2278auirowv6k9j75avbrmit6");
-  const draft_builder = nylas.drafts.build({
-    threadId: "6k7x69uj38ehi49d0s1shpuc7",
+  const thread = await nylas.messages.find(req.query.messageId);
+
+  const draft = new Draft.default(nylas, {
+    subject: thread.subject,
+    body: thread.body,
+    to: [{ name: "Bhavik Manek", email: "bhavik.manek@marutitech.com" }],
+    cc: [{ name: "Madhuri Jain", email: "madhuri.jain@marutitech.com" }],
+    // files: [uploadedFile],
   });
   try {
-    await draft_builder.save();
+    await draft.send();
 
     return res.status(200).json({ message: "Success" });
   } catch (err) {
@@ -339,31 +346,28 @@ app.post("/forward-email", async (req, res, next) => {
   }
 });
 
-// Forward email to multiple people'
-app.post("/forward-email-to-multiple", async (req, res, next) => {
-  const token = await client.get(req.query.emailAddress);
-  const nylas = Nylas.with(token);
-  const thread = await nylas.threads.find(req.query.threadId);
-  const draft_builder = nylas.drafts.build({
-    threadId: "6k7x69uj38ehi49d0s1shpuc7",
-    subject: "I will find this thing",
-    to: [{ name: "Bhavik Manek", email: "bhavik.manek@marutitech.com" }],
-    cc: [{ name: "Devang Parekh", email: "devangparekh2014@gmail.com" }],
-  });
+// Get all the messages from the inbox
+app.get("/get-inbox-messages", async (req, res, next) => {
+  console.log("Reached here");
   try {
-    await draft_builder.send();
-
-    return res.status(200).json({ message: "Success" });
-  } catch (err) {
-    console.log(err);
+    const token = await client.get(req.query.emailAddress);
+    console.log(token);
+    const nylas = Nylas.with(token);
+    const messages = await nylas.messages.list({
+      limit: 10,
+      offset: 0,
+    });
+    return res.status(200).json({ messages });
+  } catch (error) {
+    console.log(error);
     return res.status(500).json({ message: "Error" });
   }
 });
 
 // // Revoke access token
 app.get("/revoke-access-token", async (req, res, next) => {
-//   const token = await client.get(req.query.emailAddress);
-//   const nylas = Nylas.with(token);
+  //   const token = await client.get(req.query.emailAddress);
+  //   const nylas = Nylas.with(token);
   try {
     const account = await Nylas.accounts.find(req.query.accountId);
     // await account.revokeAll('kept_access_token');
